@@ -49,7 +49,7 @@ main = do
       putStrLn $ "Neighbour send a message back: " ++ show message
       hClose chandle
 
-  threadDelay 1000000000
+  threadDelay 10000
 
 readCommandLineArguments :: IO (Int, [Int])
 readCommandLineArguments = do
@@ -69,7 +69,7 @@ connectSocket portNumber = connect'
       result <- try $ connect client $ portToAddress portNumber
       case result :: Either IOException () of
         Left _ -> do
-          threadDelay 1000000
+          threadDelay 1000
           connect'
         Right _ -> return client
 
