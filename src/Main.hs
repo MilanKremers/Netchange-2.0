@@ -21,7 +21,7 @@ main = do
 
   putStrLn $ "I should be listening on port " ++ show me
   putStrLn $ "My initial neighbours are " ++ show neighbours
-
+ 
   -- Listen to the specified port.
   serverSocket <- socket AF_INET Stream 0
   setSocketOption serverSocket ReuseAddr 1
@@ -29,6 +29,8 @@ main = do
   listen serverSocket 1024
   -- Let a seperate thread listen for incomming connections
   _ <- forkIO $ listenForConnections serverSocket
+
+  -- Initialization of the netchange algorithm
 
   -- As an example, connect to the first neighbour. This just
   -- serves as an example on using the network functions in Haskell
@@ -47,9 +49,9 @@ main = do
       putStrLn "I sent a message to the neighbour"
       message <- hGetLine chandle
       putStrLn $ "Neighbour send a message back: " ++ show message
-      hClose chandle
+      threadDelay 100000000
 
-  threadDelay 10000
+  threadDelay 10000000
 
 readCommandLineArguments :: IO (Int, [Int])
 readCommandLineArguments = do

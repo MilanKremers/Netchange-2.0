@@ -1,10 +1,10 @@
 
 ==================== FINAL INTERFACE ====================
-2019-12-10 15:21:53.6422643 UTC
+2019-12-12 10:58:30.4385436 UTC
 
 interface main:Main 8065
-  interface hash: 88cca4eddcd281be50e4bac83c389b52
-  ABI hash: 2421f7b981d0a090fb8b30ee5ed7dd92
+  interface hash: 8ea96d7cb4ded8f68474324c7f5dec93
+  ABI hash: 5c0f7c2167c27d47c6d29eef342520de
   export-list hash: 24943316eb5df9ee649c61f944e48d88
   orphan hash: 693e9af84d3dfcc71e640e005bdc5e2e
   flag hash: 4eb06b32b8056123f92e5c89e498927f
@@ -89,7 +89,7 @@ d026be77cb9ced20e35a61514e0458aa
     -> (# GHC.Prim.State# GHC.Prim.RealWorld, () #)
   {- Arity: 6, Strictness: <L,U(U)><S,U><L,U><L,U(U)><S,U><S,U>,
      Inline: [2] -}
-938f07246a00004ced73a0531e9c3aaf
+d48fdb4be0ca8cfc3bbf7b5d167b3f3f
   connectSocket ::
     GHC.Types.Int -> GHC.Types.IO Network.Socket.Types.Socket
   {- Arity: 2, Strictness: <L,1*U(U)><S,U>,
@@ -98,7 +98,7 @@ d026be77cb9ced20e35a61514e0458aa
                   `cast`
                 (<GHC.Types.Int>_R
                  ->_R Sym (GHC.Types.N:IO[0] <Network.Socket.Types.Socket>_R)) -}
-89c05eddae8bdee415ff7a95a09cf7d4
+d2b85203ba9fcb7f153448e42c95d12a
   connectSocket1 ::
     GHC.Types.Int
     -> GHC.Prim.State# GHC.Prim.RealWorld
@@ -108,15 +108,15 @@ d026be77cb9ced20e35a61514e0458aa
      Unfolding: (\ (portNumber :: GHC.Types.Int)
                    (eta :: GHC.Prim.State# GHC.Prim.RealWorld) ->
                  let {
-                   lvl28 :: Network.Socket.Types.PortNumber
+                   lvl29 :: Network.Socket.Types.PortNumber
                    = case portNumber of wild { GHC.Types.I# i ->
                      (GHC.Word.W16# (GHC.Prim.narrow16Word# (GHC.Prim.int2Word# i)))
                        `cast`
                      (Sym (Network.Socket.Types.N:PortNumber[0])) }
                  } in
                  let {
-                   lvl29 :: Network.Socket.Types.SockAddr
-                   = Network.Socket.Types.SockAddrInet lvl28 Main.connectSocket4
+                   lvl30 :: Network.Socket.Types.SockAddr
+                   = Network.Socket.Types.SockAddrInet lvl29 Main.connectSocket4
                  } in
                  letrec {
                    connect' :: GHC.Prim.State# GHC.Prim.RealWorld
@@ -138,7 +138,7 @@ d026be77cb9ced20e35a61514e0458aa
                              case Network.Socket.$wconnect
                                     ww1
                                     ww7
-                                    lvl29
+                                    lvl30
                                     s1 of ds2 { (#,#) ipv2 ipv3 ->
                              (# ipv2,
                                 Data.Either.Right
