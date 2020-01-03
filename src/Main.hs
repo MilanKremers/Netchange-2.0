@@ -14,7 +14,7 @@ import Network.Socket
 import Data.List
 
 data Network = Network { u :: Int, n :: Int, dests :: [Int], neighU :: [Int], dU :: [(Int, Int)], nbU :: [(Int, Int)], ndisU :: [(Int, [(Int, Int)])]} deriving (Show)
-data Message = MyDist Int, Int, Int | Fail Int | Repair Int
+data Message = MyDist Int Int Int | Fail Int | Repair Int
 data Mode = Table | SendMessage Int [String] | MakeConnection Int | Disconnect Int  deriving Show
 data Config = Config {cfgMode :: !Mode} deriving Show
 
@@ -63,7 +63,7 @@ main = do
       threadDelay 100000-}
 
   args <- getLine
-  let config = parseConfig args
+  let config = parseConfig (words args)
 
   case cfgMode config of
     Table -> do
