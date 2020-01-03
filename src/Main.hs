@@ -14,8 +14,10 @@ import Network.Socket
 import Data.List
 
 data Network = Network { u :: Int, n :: Int, dests :: [Int], neighU :: [Int], dU :: [(Int, Int)], nbU :: [(Int, Int)], ndisU :: [(Int, [(Int, Int)])]} deriving (Show)
-data Message = MyDist Int Int Int | Fail Int | Repair Int
-  
+data Message = MyDist Int, Int, Int | Fail Int | Repair Int
+data Mode = Table | SendMessage Int [String] | MakeConnection Int | Disconnect Int  deriving Show
+data Config = Config {cfgMode :: !Mode} deriving Show
+
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
@@ -51,7 +53,7 @@ main = do
   putStrLn $ show args
   -- As an example, connect to the first neighbour. This just
   -- serves as an example on using the network functions in Haskell
-  case neighbours of
+  {-case neighbours of
     [] -> putStrLn "I have no neighbours :("
     neighbour : _ -> do
       putStrLn $ "Connecting to neighbour " ++ show neighbour ++ "..."
@@ -66,10 +68,73 @@ main = do
       putStrLn "I sent a message to the neighbour"
       message <- hGetLine chandle
       putStrLn $ "Neighbour send a message back: " ++ show message
+      threadDelay 100000-}
+
+  args <- getLine
+  let config = parseConfig args
+
+  case cfgMode config of
+    Table -> do
+      undefined
+    SendMessage portnumber bericht -> do
+      putStrLn $ "Connecting to neighbour " ++ show portnumber  ++ "..."
+      client <- connectSocket portnumber
+      chandle <- socketToHandle client ReadWriteMode
+      -- Send a message over the socket
+      -- You can send and receive messages with a similar API as reading and writing to the console.
+      -- Use `hPutStrLn chandle` instead of `putStrLn`,
+      -- and `hGetLine  chandle` instead of `getLine`.
+      -- You can close a connection with `hClose chandle`.
+      hPutStrLn chandle $ show bericht
+      putStrLn "I sent a message to the neighbour"
+      message <- hGetLine chandle
+      putStrLn $ "Neighbour send a message back: " ++ show message
       threadDelay 100000
+    MakeConnection portnumber-> do
+      undefined
+    Disconnect portnumber -> do
+      undefined
+    
+
+  {-case cfgMode config of
+    Count -> do
+      case cfgSync config of
+        SyncIORef -> do
+          counter <- newIORef 0
+          bool <- newIORef True
+          l <- return $ IORefLock (bool)
+          countIORef config counter l
+          threadDelay 10000
+          result <- readIORef counter
+          print result
+        SyncMVar -> do
+          counter <- newIORef 0
+          bool <- newMVar True
+          l <- return $ MVarLock (bool)
+          countIORef config counter l
+          threadDelay 10000
+          result <- readIORef counter
+          print result-}
+
   
 
-  threadDelay 100000
+  threadDelay 10000000000
+
+
+-- Parses the command line arguments
+parseConfig :: [String] -> Config
+parseConfig (mode' : rest)
+  = Config mode
+  where
+    -- Program mode
+    mode = case (mode', rest) of
+      ("R", []) -> Table
+      ("C", (x:y)) -> SendMessage (read x) y
+      ("B", [x]) -> MakeConnection (read x)
+      ("D", [x]) -> Disconnect (read x)
+      _ -> error "Illegal mode or wrong number of arguments"
+parseConfig _ = error "Wrong number of arguments"
+
 -- Initialization function for the IORef network
 initialize :: Network -> Network
 initialize network = network{ ndisU = initNDis (n network) (neighU network) (dests network), 
@@ -242,5 +307,9 @@ handleConnection connection = do
   chandle <- socketToHandle connection ReadWriteMode
   hPutStrLn chandle "Welcome"
   message <- hGetLine chandle
+  -- vanaf hier zelf
+
+  --vanaf hier weer template
   putStrLn $ "Incomming connection send a message: " ++ message
-  hClose chandle
+-- hierin gaan we netchange opnieuw aanroepen
+  --hClose chandle -- dit alleen na een opdracht in de console
