@@ -43,14 +43,6 @@ main = do
   
   -- Initialization of the netchange algorithm
   modifyIORef network (initialize)
-  
-  let function x = do {
-    putStrLn $ show x
-  }
-  function 5
-
-  args <- getLine
-  putStrLn $ show args
   -- As an example, connect to the first neighbour. This just
   -- serves as an example on using the network functions in Haskell
   {-case neighbours of
