@@ -14,8 +14,8 @@ import Network.Socket
 import Data.List
 
 data Network = Network { u :: Int, n :: Int, dests :: [Int], neighU :: [Int], dU :: [(Int, Int)], nbU :: [(Int, Int)], ndisU :: [(Int, [(Int, Int)])]} deriving (Show)
-data Message = MyDist Int Int Int | Fail Int | Repair Int
-data Mode = Table | SendMessage Int [String] | MakeConnection Int | Disconnect Int  deriving Show
+data Message = Mydist Int Int Int | Fail Int | Repair Int
+data Mode = Table | SendMessage Int [String] | MakeConnection Int | Disconnect Int | MyDist Int Int Int  deriving Show
 data Config = Config {cfgMode :: !Mode} deriving Show
 
 main :: IO ()
@@ -39,10 +39,11 @@ main = do
   bind serverSocket $ portToAddress me
   listen serverSocket 1024
   -- Let a seperate thread listen for incomming connections
-  _ <- forkIO $ listenForConnections serverSocket
+  _ <- forkIO $ listenForConnections serverSocket network
   
   -- Initialization of the netchange algorithm
   modifyIORef network (initialize)
+  pushInitMessages neighbours me
   -- As an example, connect to the first neighbour. This just
   -- serves as an example on using the network functions in Haskell
   {-case neighbours of
@@ -112,7 +113,6 @@ main = do
 
   threadDelay 10000000000
 
-
 -- Parses the command line arguments
 parseConfig :: [String] -> Config
 parseConfig (mode' : rest)
@@ -124,6 +124,7 @@ parseConfig (mode' : rest)
       ("C", (x:y)) -> SendMessage (read x) y
       ("B", [x]) -> MakeConnection (read x)
       ("D", [x]) -> Disconnect (read x)
+      ("MyDist", (x:y:[z])) -> MyDist (read x) (read y) (read z)
       _ -> error "Illegal mode or wrong number of arguments"
 parseConfig _ = error "Wrong number of arguments"
 
@@ -153,6 +154,18 @@ initNBU _  [] = []
 initNBU u (v:vs) | u == v    = (v, 0) : initNBU u vs
                  | otherwise = (v, -1) : initNBU u vs
 
+pushInitMessages :: [Int] -> Int -> IO ()
+pushInitMessages [] _ = return ()
+pushInitMessages (w:ws) u = do
+  forkIO $ pushInitMessage w u 
+  pushInitMessages ws u
+
+pushInitMessage :: Int -> Int -> IO ()
+pushInitMessage w u = do
+  client <- connectSocket w
+  chandle <- socketToHandle client ReadWriteMode
+  hPutStrLn chandle $ "MyDist " ++ show u ++ " 0 " ++ "1"
+
 -- Recompute functions for the IORef network
 recompute :: Network -> Int -> Network
 recompute network v | u network == v = recomLocal network v
@@ -172,8 +185,8 @@ recom' network@Network{ n, dU, nbU, ndisU } v d | d < n     = network{ dU = upda
                                                                        nbU = updateAt nbU v (-1) }
 
 -- Processing functions for the IORef network
-processMessage :: Message -> Network -> Network 
-processMessage (MyDist v w d) network = recompute (processMessage' v w d network) v
+processMessage :: Int -> Int -> Int -> Network -> Network 
+processMessage v w d network = recompute (processMessage' v w d network) v
 
 processMessage' :: Int -> Int -> Int -> Network -> Network
 processMessage' v w d network@Network{ ndisU } = network{ ndisU = updateNDisAt w v d ndisU }
@@ -287,21 +300,21 @@ connectSocket portNumber = connect'
           connect'
         Right _ -> return client
 
-listenForConnections :: Socket -> IO ()
-listenForConnections serverSocket = do
+listenForConnections :: Socket -> IORef Network -> IO ()
+listenForConnections serverSocket network = do
   (connection, _) <- accept serverSocket
-  _ <- forkIO $ handleConnection connection
-  listenForConnections serverSocket
+  _ <- forkIO $ handleConnection connection network
+  listenForConnections serverSocket network
 
-handleConnection :: Socket -> IO ()
-handleConnection connection = do
-  putStrLn "Got new incomming connection"
+handleConnection :: Socket -> IORef Network -> IO ()
+handleConnection connection network = do
   chandle <- socketToHandle connection ReadWriteMode
   hPutStrLn chandle "Welcome"
-  message <- hGetLine chandle
-  -- vanaf hier zelf
-
-  --vanaf hier weer template
-  putStrLn $ "Incomming connection send a message: " ++ message
+  args <- hGetLine chandle
+  let config = parseConfig (words args)
+  case cfgMode config of 
+    MyDist x y z -> do
+      modifyIORef network (processMessage x y z)
+  
 -- hierin gaan we netchange opnieuw aanroepen
   --hClose chandle -- dit alleen na een opdracht in de console
