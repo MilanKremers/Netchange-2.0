@@ -1,4 +1,5 @@
 {-# language NamedFieldPuns #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Main where
 
@@ -10,9 +11,10 @@ import Data.IORef
 import System.Environment
 import System.IO
 import Network.Socket
+import Data.List
 
 data Network = Network { u :: Int, n :: Int, dests :: [Int], neighU :: [Int], dU :: [(Int, Int)], nbU :: [(Int, Int)], ndisU :: [(Int, [(Int, Int)])]} deriving (Show)
-data Message = MyDist ((Int, Int)) | Fail (Int) | Repair (Int)
+data Message = MyDist Int Int Int | Fail Int | Repair Int
   
 main :: IO ()
 main = do
@@ -39,9 +41,14 @@ main = do
   
   -- Initialization of the netchange algorithm
   modifyIORef network (initialize)
-  network'' <- readIORef network
-  putStrLn $ "neighbours " ++ show (network'')
   
+  let function x = do {
+    putStrLn $ show x
+  }
+  function 5
+
+  args <- getLine
+  putStrLn $ show args
   -- As an example, connect to the first neighbour. This just
   -- serves as an example on using the network functions in Haskell
   case neighbours of
@@ -67,7 +74,7 @@ main = do
 initialize :: Network -> Network
 initialize network = network{ ndisU = initNDis (n network) (neighU network) (dests network), 
                               dU = initDU (u network) (n network) (dests network),
-                              nbU = initNBU (u network) (dests network)}
+                              nbU = initNBU (u network) (dests network) }
 
 initNDis :: Int -> [Int] -> [Int] -> [(Int, [(Int, Int)])]
 initNDis _ [] _ = []
@@ -89,6 +96,52 @@ initNBU _  [] = []
 initNBU u (v:vs) | u == v    = (v, 0) : initNBU u vs
                  | otherwise = (v, -1) : initNBU u vs
 
+-- Recompute functions for the IORef network
+recompute :: Network -> Int -> Network
+recompute network v | u network == v = recomLocal network v
+                    | otherwise      = recom network v
+
+recomLocal :: Network -> Int -> Network 
+recomLocal network@Network{ dU, nbU } v = network{ dU = (updateAt dU v 0), 
+                                                   nbU = (updateAt nbU v 0) }
+
+recom :: Network -> Int -> Network
+recom network@Network{ neighU, ndisU } v = recom' network v (checkMin v neighU ndisU) 
+
+recom' :: Network -> Int -> Int -> Network
+recom' network@Network{ n, dU, nbU, ndisU } v d | d < n     = network{ dU = updateAt dU v d,
+                                                                       nbU = updateAt nbU v (getPrefW v (d - 1) ndisU) }
+                                                | otherwise = network{ dU = updateAt dU v n,
+                                                                       nbU = updateAt nbU v (-1) }
+
+-- Processing functions for the IORef network
+processMessage :: Message -> Network -> Network 
+processMessage (MyDist v w d) network = recompute (processMessage' v w d network) v
+
+processMessage' :: Int -> Int -> Int -> Network -> Network
+processMessage' v w d network@Network{ ndisU } = network{ ndisU = updateNDisAt w v d ndisU }
+
+-- fail functions for the IORef network
+failMessage :: Message -> Network -> Network
+failMessage (Fail w) network@Network{ neighU } = recomAllV (network{ neighU = delete w neighU })
+
+recomAllV :: Network -> Network
+recomAllV network@Network{ dests } = recomAllV' dests network
+  where recomAllV' :: [Int] -> Network -> Network
+        recomAllV' [] network = network
+        recomAllV' (v:vs) network = recomAllV' vs (recompute network v)
+
+-- Repair function for the IORef network
+repairMessage :: Message -> Network -> Network
+repairMessage (Repair w) network@Network{ neighU } = repairAllV w (updateNeighU [w] network)
+
+repairAllV :: Int -> Network -> Network
+repairAllV w network@Network{ dests } = repairAllV' w dests network
+  where repairAllV' :: Int -> [Int] -> Network -> Network
+        repairAllV' _ [] network = network
+        repairAllV' w (v:vs) network@Network{ n, ndisU } = network{ ndisU = updateNDisAt w v n ndisU }
+          --  TODO add send message
+
 -- Update functions for the IORef network
 updateN :: Int -> Network -> Network
 updateN x network = network{ n = n network + x }
@@ -98,6 +151,61 @@ updateV x network = network{ dests = (dests network) ++ x }
 
 updateNeighU :: [Int] -> Network -> Network
 updateNeighU x network = network{ neighU = (neighU network) ++ x }
+
+-- update function for tuple arrays
+updateNDisAt :: Int -> Int -> Int -> [(Int, [(Int, Int)])] -> [(Int, [(Int, Int)])]
+updateNDisAt _ _ _ []     = []
+updateNDisAt w v d (n:ns) | getW n == w = (w, updateAt (getList n) v d) : updateNDisAt w v d ns
+                          | otherwise   = n : updateNDisAt w v d ns
+
+updateAt :: [(Int, Int)] -> Int -> Int -> [(Int, Int)]
+updateAt [] _ _     = []
+updateAt (x:xs) y z = updateAt' x y z : updateAt xs y z 
+  where updateAt' :: (Int, Int) -> Int -> Int -> (Int, Int)
+        updateAt' (x1, x2) y z | x1 == y   = (x1, z)
+                               | otherwise = (x1, x2)
+
+getW :: (Int, [(Int, Int)]) -> Int
+getW (w, _) = w
+
+getList :: (Int, [(Int, Int)]) -> [(Int, Int)]
+getList (_, ns) = ns
+
+-- helper functions on nDis
+checkMin :: Int -> [Int] -> [(Int, [(Int, Int)])] -> Int
+checkMin v ws ns = 1 + minimum (checkMin' v ws ns)
+
+checkMin' :: Int -> [Int] -> [(Int, [(Int, Int)])] -> [Int]
+checkMin' _ [] _ = [] 
+checkMin' v (w:ws) ns = checkMin'' v w ns : checkMin' v ws ns
+
+checkMin'' :: Int -> Int -> [(Int, [(Int, Int)])] -> Int
+checkMin'' _ _ []   = -1
+checkMin'' v w (n:ns) | w == getW n = getDisToV n v
+                      | otherwise   = checkMin'' v w ns
+
+getDisToV :: (Int, [(Int, Int)]) -> Int -> Int
+getDisToV ndis v = maximum(getDisToV' ndis v)
+
+getDisToV' :: (Int, [(Int, Int)]) -> Int -> [Int]
+getDisToV' (_, []) _     = []
+getDisToV' (w, (x:xs)) v = getDisToV'' x v : getDisToV' (w, xs) v
+  where getDisToV'' :: (Int, Int) -> Int -> Int
+        getDisToV'' (x, d) v | x == v    = d
+                             | otherwise = -1
+
+getPrefW :: Int -> Int -> [(Int, [(Int, Int)])] -> Int
+getPrefW _ _ []     = 0     
+getPrefW v d (n:ns) | isPrefW v d n = getW n
+                    | otherwise     = getPrefW v d ns
+
+isPrefW :: Int -> Int -> (Int, [(Int, Int)]) -> Bool
+isPrefW _ _ (_, [])     = False
+isPrefW v d (w, (x:xs)) | isPrefW' v d x = True
+                        | otherwise      = isPrefW v d (w, xs)
+  where isPrefW' :: Int -> Int -> (Int, Int) -> Bool
+        isPrefW' v d (x, y) | v == x && d == y = True
+                            | otherwise        = False
 
 -- Functions provided in template
 readCommandLineArguments :: IO (Int, [Int])
